@@ -326,7 +326,7 @@ http://localhost:8501
 
 ## Open Source Programs 2026
 
-<img src="https://img.shields.io/badge/GSSoC+'26+%26+NSoC+2026-d4af37?style=for-the-badge&logo=github&logoColor=white" />
+<img src="https://img.shields.io/badge/GSSoC%20'26%20%26%20NSoC%202026-d4af37?style=for-the-badge&logo=github&logoColor=white" />
 
 </div>
 
