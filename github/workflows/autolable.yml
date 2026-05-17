@@ -2,14 +2,14 @@
 # GitHub Actions Workflow
 # Purpose:
 # Automatically ensure that a label named
-# "NSoC'26" exists and attach it whenever
+# "GSSoC'26" exists and attach it whenever
 # a new issue is opened in the repository.
 #
 # Expanded version with comments and spacing
 # for readability and documentation.
 # ==========================================================
 
-name: "Auto-label NSoC'26 on issue opened"
+name: "Auto-label GSSoC'26 on issue opened"
 
 
 
@@ -90,7 +90,7 @@ jobs:
       # Ensure label exists and add it
       # ====================================================
 
-      - name: Ensure and add NSoC'26 label
+      - name: Ensure and add GSSoC'26 label
 
         # ================================================
         # GitHub Script Action
@@ -109,7 +109,7 @@ jobs:
             // Define label name
             // ============================================
 
-            const label = "NSoC'26";
+            const label = "GSSoC'26";
 
 
 
@@ -161,7 +161,7 @@ jobs:
 
                 color: "0e8a16",
 
-                description: "Label for NSoC 2026 issues"
+                description: "Label for GSSoC 2026 issues"
 
               })
 
