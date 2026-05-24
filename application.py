@@ -7,7 +7,6 @@ import plotly.express as px
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.pipeline import Pipeline
-import xgboost as xgb
 from xgboost import XGBClassifier
 
 # -----------------------------------
@@ -1380,50 +1379,59 @@ if st.session_state.page == "Analysis":
     teams = list(team_data.keys())
 
     # ---- INPUT SECTION ----
-    st.markdown("""
-        <div style="font-size:clamp(11px,1.5vw,12px);letter-spacing:3px;text-transform:uppercase;
-                    color:rgba(251,191,36,0.8);margin-bottom:clamp(16px,3vw,24px);font-weight:600;">
-            Match Configuration
-        </div>
-    """, unsafe_allow_html=True)
 
-    col1, col2 = st.columns([1, 1], gap="large")
+st.markdown("""
+    <div style="font-size:clamp(11px,1.5vw,12px);letter-spacing:3px;text-transform:uppercase;
+                color:rgba(251,191,36,0.8);margin-bottom:clamp(16px,3vw,24px);font-weight:600;">
+        Match Configuration
+    </div>
+""", unsafe_allow_html=True)
 
-    with col1:
-        st.markdown('<div class="input-card">', unsafe_allow_html=True)
-        st.markdown('<div class="input-label">Select Teams</div>', unsafe_allow_html=True)
-        batting_team = st.selectbox("Batting Team", teams, key="bat")
-        bowling_team = st.selectbox("Bowling Team", [t for t in teams if t != batting_team], key="bowl")
-        
-        # City selection
-        st.markdown('<div style="height:16px;"></div>', unsafe_allow_html=True)
-        st.markdown('<div class="input-label">Match Venue</div>', unsafe_allow_html=True)
-        
-        # IPL cities - common venues used in the dataset
-        cities = [
-            "Mumbai", "Bangalore", "Delhi", "Chennai", "Kolkata", 
-            "Hyderabad", "Jaipur", "Chandigarh", "Ahmedabad", 
-            "Pune", "Lucknow", "Visakhapatnam", "Indore",
-            "Durban", "Johannesburg", "Cape Town", "Centurion",  # Some historical matches abroad (checked the dataset as well)
-            "Dubai", "Abu Dhabi", "Sharjah"  # some UAE venues mentioned in dataset
-        ]
-        
-        city = st.selectbox("City / Stadium Location", cities, key="city")
-        st.markdown('</div>', unsafe_allow_html=True)
+col1, col2 = st.columns([1, 1], gap="large")
 
-    with col2:
-        st.markdown('<div class="input-card">', unsafe_allow_html=True)
-        st.markdown('<div class="input-label">Match State</div>', unsafe_allow_html=True)
-        target = st.number_input("Target Score", min_value=50, max_value=300, value=180, step=1)
-        score = st.number_input("Current Score", min_value=0, max_value=target - 1, value=50, step=1)
-        col_ov, col_wk = st.columns(2)
-        with col_ov:
-            overs = st.slider("Overs Completed", min_value=1, max_value=19, value=10)
-        with col_wk:
-            wickets = st.number_input("Wickets Fallen", min_value=0, max_value=9, value=2)
-        st.markdown('</div>', unsafe_allow_html=True)
+with col1:
+    st.markdown('<div class="input-card">', unsafe_allow_html=True)
+    st.markdown('<div class="input-label">Select Teams</div>', unsafe_allow_html=True)
+    batting_team = st.selectbox("Batting Team", teams, key="bat")
+    bowling_team = st.selectbox("Bowling Team", [t for t in teams if t != batting_team], key="bowl")
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown('<div style="height:clamp(24px,4vw,32px);"></div>', unsafe_allow_html=True)
+with col2:
+    st.markdown('<div class="input-card">', unsafe_allow_html=True)
+    st.markdown('<div class="input-label">Match State</div>', unsafe_allow_html=True)
+
+    target = st.number_input("Target Score", min_value=50, max_value=300, value=180, step=1)
+    score = st.number_input("Current Score", min_value=0, max_value=target - 1, value=50, step=1)
+
+    col_ov, col_wk = st.columns(2)
+
+    with col_ov:
+        overs_input = st.text_input(
+            "Overs Completed",
+            value="10.0",
+            help="Example: 10.3 means 10 overs and 3 balls"
+        )
+
+        try:
+            over_part, ball_part = overs_input.split(".")
+            over_part = int(over_part)
+            ball_part = int(ball_part)
+
+            if ball_part > 5:
+                st.error("Invalid over format! Balls can only be between 0 and 5.")
+                st.stop()
+
+        except:
+            st.error("Enter format like 10.3 (10 overs 3 balls)")
+            st.stop()
+
+    with col_wk:
+        wickets = st.number_input(
+            "Wickets Fallen",
+            min_value=0,
+            max_value=9,
+            value=2
+        )
 
     # ---- TEAM VS DISPLAY ----
     t1 = team_data[batting_team]
@@ -1501,276 +1509,113 @@ if st.session_state.page == "Analysis":
 
     st.markdown('<div style="height:clamp(24px,4vw,40px);"></div>', unsafe_allow_html=True)
 
-    # ---- ANALYZE BUTTON ----
-    st.markdown('<div class="analyze-btn">', unsafe_allow_html=True)
-    analyze = st.button("Run Analysis", key="analyze_btn", use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+# ---- ANALYZE BUTTON ----
 
-    # ---- PREDICTION OUTPUT ----
-    if analyze:
-        runs_left = target - score
-        balls_left = 120 - (overs * 6)
-        wickets_left = 10 - wickets  # Our model specifically trained on 'wickets_left'
-    
-        # Calculate balls bowled to ensure exact CRR match with training data
-        balls_bowled = 120 - balls_left
-    
-        # Safe CRR and RRR calculation (prevents division by zero errors on first/last balls)
-        crr = (score * 6) / balls_bowled if balls_bowled > 0 else 0
-        rrr = (runs_left * 6) / balls_left if balls_left > 0 else 0
+st.markdown("""
+<style>
+.stButton > button {
+    background: linear-gradient(135deg, #f59e0b, #fbbf24);
+    color: #0f172a;
+    font-weight: 700;
+    border-radius: 12px;
+}
+</style>
+""", unsafe_allow_html=True)
 
-        loaded_xgb = xgb.XGBClassifier()
-        loaded_xgb.load_model('xgb_win_prob_model.json')
+analyze = st.button(
+    "Run Analysis",
+    key="analyze_btn",
+    use_container_width=True
+)
 
-        # Map current UI team names to the historical names used during model training.
-        # The model was trained before aliases were applied, so it knows teams by their
-        # original names (e.g. "Kings XI Punjab" not "Punjab Kings").
-        UI_TO_MODEL_NAME = {
-            "Chennai Super Kings":        "Chennai Super Kings",
-            "Delhi Capitals":             "Delhi Capitals",
-            "Punjab Kings":               "Kings XI Punjab",
-            "Kolkata Knight Riders":      "Kolkata Knight Riders",
-            "Mumbai Indians":             "Mumbai Indians",
-            "Rajasthan Royals":           "Rajasthan Royals",
-            "Royal Challengers Bangalore":"Royal Challengers Bangalore",
-            "Sunrisers Hyderabad":        "Sunrisers Hyderabad",
-        }
+ # ---- PREDICTION OUTPUT ----
 
-        # All one-hot columns the model was trained on (from the saved model's feature list).
-        # Historical/defunct teams must be present as zeros so the feature matrix matches exactly.
-        ALL_MODEL_TEAMS = [
-            "Chennai Super Kings", "Deccan Chargers", "Delhi Capitals", "Delhi Daredevils",
-            "Gujarat Lions", "Kings XI Punjab", "Kochi Tuskers Kerala", "Kolkata Knight Riders",
-            "Mumbai Indians", "Pune Warriors", "Rajasthan Royals", "Rising Pune Supergiant",
-            "Rising Pune Supergiants", "Royal Challengers Bangalore", "Sunrisers Hyderabad",
-        ]
+if analyze:
 
-        # Build numerical features first, then one-hot columns — all 0 by default.
-        input_dict = {
-            'target_score':  target,
-            'runs_left':     runs_left,
-            'balls_left':    balls_left,
-            'crr':           crr,
-            'rrr':           rrr,
-            'wickets_left':  wickets_left,
-        }
-        for team in ALL_MODEL_TEAMS:
-            input_dict[f"bat_{team}"] = 0
-        for team in ALL_MODEL_TEAMS:
-            input_dict[f"bowl_{team}"] = 0
+    runs_left = target - score
 
-        # Set the correct bat/bowl flags using the historical name mapping.
-        bat_col  = f"bat_{UI_TO_MODEL_NAME[batting_team]}"
-        bowl_col = f"bowl_{UI_TO_MODEL_NAME[bowling_team]}"
-        input_dict[bat_col]  = 1
-        input_dict[bowl_col] = 1
+    completed_balls = (over_part * 6) + ball_part
+    balls_left = 120 - completed_balls
 
-        input_df = pd.DataFrame([input_dict])
-        # ---- MATCH-STATE VALIDATION (Issue #31) ----
-        # Guard 1: batting team has already reached or crossed the target
-        if runs_left <= 0:
-            st.success(
-                f"🏆 **Match Over** — **{batting_team}** have already reached the target! "
-                f"No prediction needed."
-            )
-            st.stop()
+    # CRR
+    if completed_balls > 0:
+        crr = (score / completed_balls) * 6
+    else:
+        crr = 0
 
-        # Guard 2: no balls remaining — innings is over, batting team fell short
-        if balls_left <= 0:
-            st.error(
-                f"⏱️ **Match Over** — No balls remaining. **{bowling_team}** win! "
-                f"No prediction needed."
-            )
-            st.stop()
+    # RRR
+    if balls_left > 0:
+        rrr = (runs_left / balls_left) * 6
+    else:
+        rrr = 0
 
-        # Guard 3: RRR physically impossible (> 36 runs/over = 6 runs every ball)
-        if rrr > 36.0:
-            st.error(
-                f"⚠️ **Invalid match state** — Required Run Rate is **{round(rrr, 2)} runs/over**, "
-                f"which is physically impossible in cricket. Please check your inputs."
-            )
-            st.stop()
+  
 
-        # Guard 4: RRR extremely high (> 24 runs/over) — warn but allow prediction
-        if rrr > 24.0:
-            st.warning(
-                f"⚠️ **Extreme match state** — Required Run Rate is **{round(rrr, 2)} runs/over**. "
-                f"This is a very unlikely scenario; the prediction below may be less reliable."
-            )
+    # ---- MODEL INPUT ----
+    input_df = pd.DataFrame({
+        'batting_team': [batting_team],
+        'bowling_team': [bowling_team],
+        'city': ['Mumbai'],
+        'runs_left': [runs_left],
+        'balls_left': [balls_left],
+        'wickets': [10 - wickets],
+        'target': [target],
+        'crr': [crr],
+        'rrr': [rrr]
+    })
 
-        input_df = pd.DataFrame({
-            'batting_team': [batting_team],
-            'bowling_team': [bowling_team],
-            'city': [city],  # Here is the mAin fix, from hardcoded mumbai -> dynamic city input
-            'runs_left': [runs_left],
-            'balls_left': [balls_left],
-            'wickets': [10 - wickets],
-            'target': [target],
-            'crr': [crr],
-            'rrr': [rrr]
-        })
+    with st.spinner("Predicting..."):
+        time.sleep(0.4)
+        proba = pipe.predict_proba(input_df)[0]
 
-        with st.spinner(""):
-            time.sleep(0.4)
-            result = loaded_xgb.predict_proba(input_df)
+    win = proba[1]
+    lose = proba[0]
 
-        loss = result[0][0]
-        win = result[0][1]
-        st.session_state.prob_history.append(round(win * 100, 2))
+    st.session_state.prob_history.append(round(win * 100, 2))
 
-        st.markdown('<div style="height:clamp(24px,4vw,40px);"></div>', unsafe_allow_html=True)
-        st.markdown("""
-            <div style="font-size:clamp(11px,1.5vw,12px);letter-spacing:3px;text-transform:uppercase;
-                        color:rgba(251,191,36,0.8);margin-bottom:clamp(16px,3vw,20px);font-weight:600;">
-                Prediction Output
-            </div>
-        """, unsafe_allow_html=True)
+    # ---- OUTPUT HEADER ----
+    st.markdown("### 📊 Prediction Output")
 
-        res_col1, res_col2 = st.columns(2, gap="large")
+    res_col1, res_col2 = st.columns(2, gap="large")
 
-        with res_col1:
-            bat_pct = round(win * 100)
-            st.markdown(f"""
-                <div class="prediction-card">
-                    <div class="prediction-label">Batting Team · {t1['abbr']}</div>
-                    <div style="font-family:'Cormorant Garamond',serif;font-size:clamp(20px,4vw,28px);
-                                font-weight:600;color:#f8fafc;margin-bottom:clamp(16px,3vw,20px);">
-                        {batting_team}
-                    </div>
-                    <div class="win-probability">{bat_pct}%</div>
-                    <div class="win-prob-label">Win Probability</div>
-                    <div class="prob-bar-track">
-                        <div class="prob-bar-fill" style="width:{bat_pct}%;"></div>
-                    </div>
-                    <div class="prob-bar-labels">
-                        <span>0%</span><span>{bat_pct}%</span><span>100%</span>
-                    </div>
-                    <div class="metrics-row">
-                        <div class="metric-chip">
-                            <div class="metric-chip-value">{score}</div>
-                            <div class="metric-chip-label">Current</div>
-                        </div>
-                        <div class="metric-chip">
-                            <div class="metric-chip-value">{runs_left}</div>
-                            <div class="metric-chip-label">Needed</div>
-                        </div>
-                        <div class="metric-chip">
-                            <div class="metric-chip-value">{balls_left}</div>
-                            <div class="metric-chip-label">Balls</div>
-                        </div>
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
-
-        with res_col2:
-            bowl_pct = round(loss * 100)
-            st.markdown(f"""
-                <div style="background:rgba(15,23,42,0.4);border:1px solid rgba(148,163,184,0.15);
-                            border-radius:28px;padding:clamp(28px,5vw,40px);position:relative;overflow:hidden;
-                            backdrop-filter:blur(20px);">
-                    <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(148,163,184,0.3),transparent);"></div>
-                    <div class="prediction-label">Bowling Team · {t2['abbr']}</div>
-                    <div style="font-family:'Cormorant Garamond',serif;font-size:clamp(20px,4vw,28px);
-                                font-weight:600;color:#f8fafc;margin-bottom:clamp(16px,3vw,20px);">
-                        {bowling_team}
-                    </div>
-                    <div style="font-family:'DM Mono',monospace;font-size:clamp(48px,10vw,80px);font-weight:600;
-                                color:rgba(148,163,184,0.6);line-height:1;margin-bottom:8px;">
-                        {bowl_pct}%
-                    </div>
-                    <div class="win-prob-label">Win Probability</div>
-                    <div class="prob-bar-track">
-                        <div style="height:100%;border-radius:100px;
-                                    background:rgba(148,163,184,0.3);
-                                    width:{bowl_pct}%;transition:width 1s ease;"></div>
-                    </div>
-                    <div class="prob-bar-labels">
-                        <span>0%</span><span>{bowl_pct}%</span><span>100%</span>
-                    </div>
-                    <div class="metrics-row">
-                        <div class="metric-chip">
-                            <div class="metric-chip-value">{round(crr, 2)}</div>
-                            <div class="metric-chip-label">CRR</div>
-                        </div>
-                        <div class="metric-chip">
-                            <div class="metric-chip-value">{round(rrr, 2)}</div>
-                            <div class="metric-chip-label">RRR</div>
-                        </div>
-                        <div class="metric-chip">
-                            <div class="metric-chip-value">{10 - wickets}</div>
-                            <div class="metric-chip-label">Wickets</div>
-                        </div>
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
-
-        # ---- SUMMARY ROW ----
-        st.markdown('<div style="height:clamp(16px,3vw,24px);"></div>', unsafe_allow_html=True)
-        verdict = batting_team if win > 0.5 else bowling_team
-        conf = max(win, loss)
-        conf_label = "High" if conf > 0.75 else "Moderate" if conf > 0.55 else "Close"
-        conf = max(win, lose)
-        conf_color = "#10b981" if conf > 0.75 else "#fbbf24" if conf > 0.55 else "#f87171"
-        conf_label = "High Confidence" if conf > 0.75 else "Moderate" if conf > 0.55 else "Close Match"
+    # ---- BATTING TEAM ----
+    with res_col1:
+        bat_pct = round(win * 100)
 
         st.markdown(f"""
-            <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(251,191,36,0.2);
-                        border-radius:20px;padding:clamp(20px,4vw,28px) clamp(24px,4vw,32px);
-                        backdrop-filter:blur(20px);position:relative;overflow:hidden;">
-                <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,{conf_color},transparent);opacity:0.6;"></div>
-                <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:20px;">
-                    <div>
-                        <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;
-                                    color:rgba(148,163,184,0.5);margin-bottom:8px;font-weight:600;">Model Verdict</div>
-                        <div style="font-family:'Cormorant Garamond',serif;font-size:clamp(24px,5vw,32px);
-                                    font-weight:600;color:#f8fafc;">
-                            {verdict} <span style="color:{conf_color};">favoured</span>
-                        </div>
-                    </div>
-                    <div style="text-align:right;">
-                        <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;
-                                    color:rgba(148,163,184,0.5);margin-bottom:8px;font-weight:600;">Confidence Level</div>
-                        <div style="font-family:'DM Mono',monospace;font-size:clamp(20px,4vw,28px);color:{conf_color};font-weight:600;">
-                            {conf_label} · {round(conf*100)}%
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div class="prediction-card">
+            <div class="prediction-label">Batting Team</div>
+            <h3>{batting_team}</h3>
+            <h1>{bat_pct}%</h1>
+            <p>Win Probability</p>
+            <p>Runs Left: {runs_left}</p>
+            <p>Balls Left: {balls_left}</p>
+        </div>
         """, unsafe_allow_html=True)
 
-        if len(st.session_state.prob_history) > 1:
-            st.markdown('<div style="height:32px;"></div>', unsafe_allow_html=True)
+    # ---- BOWLING TEAM ----
+    with res_col2:
+        bowl_pct = round(lose * 100)
 
-            fig = px.line(
-                x=list(range(1, len(st.session_state.prob_history)+1)),
-                y=st.session_state.prob_history,
-                labels={'x': 'Analysis Point', 'y': 'Win Probability (%)'},
-                title="Win Probability Progression"
-            )
+        st.markdown(f"""
+        <div class="prediction-card">
+            <div class="prediction-label">Bowling Team</div>
+            <h3>{bowling_team}</h3>
+            <h1>{bowl_pct}%</h1>
+            <p>Win Probability</p>
+            <p>CRR: {round(crr,2)}</p>
+            <p>RRR: {round(rrr,2)}</p>
+        </div>
+        """, unsafe_allow_html=True)
 
-            fig.update_layout(
-                template="plotly_dark",
-                plot_bgcolor="rgba(0,0,0,0)",
-                paper_bgcolor="rgba(0,0,0,0)",
-                font=dict(color="#e2e8f0", family="DM Sans"),
-                title_font_size=20,
-                title_font_color="#fbbf24",
-                xaxis_gridcolor="rgba(251,191,36,0.1)",
-                yaxis_gridcolor="rgba(251,191,36,0.1)",
-                xaxis_linecolor="rgba(251,191,36,0.2)",
-                yaxis_linecolor="rgba(251,191,36,0.2)"
-            )
-            
-            fig.update_traces(
-                line_color="#fbbf24",
-                line_width=3,
-                marker_color="#f59e0b",
-                marker_size=8,
-                fill='tozeroy',
-                fillcolor="rgba(251,191,36,0.1)"
-            )
+    # ---- SUMMARY ----
+    verdict = batting_team if win > 0.5 else bowling_team
+    conf = max(win, lose)
 
-            st.plotly_chart(fig, use_container_width=True)
+    st.success(f"🏆 Predicted Winner: {verdict} ({round(conf*100)}% confidence)")
+
+
     
-    st.markdown('</div>', unsafe_allow_html=True)
+
+
     
